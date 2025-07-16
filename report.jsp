@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<!DOCTYPE html>
 <html>
 <head>
     <title>MongoDB Report</title>
@@ -9,7 +10,7 @@
             width: 100%;
         }
         th, td {
-            border: 1px solid black;
+            border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
@@ -22,16 +23,16 @@
     <h2>MongoDB Report by Day, Namespace, and Component</h2>
     <table>
         <tr>
-            <th>Day</th>
+            <th>Date</th>
             <th>Namespace</th>
             <th>Component</th>
             <th>Count</th>
         </tr>
         <c:forEach var="result" items="${results}">
             <tr>
-                <td>${result.day}</td>
-                <td>${result.namespace}</td>
-                <td>${result.component}</td>
+                <td>${result._id.date}</td>
+                <td>${result._id.namespace}</td>
+                <td>${result._id.component}</td>
                 <td>${result.count}</td>
             </tr>
         </c:forEach>

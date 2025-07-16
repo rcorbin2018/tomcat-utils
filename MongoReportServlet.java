@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public class MongoReportServlet extends HttpServlet {
             MongoCollection<Document> collection = database.getCollection("myCollection");
 
             // Aggregation pipeline to group by day, namespace, and component
-            List<Document> results = collection.aggregate(Arrays.asList(
+            List<Bson> pipeline = Arrays.asList(
                 // Project to extract date components
                 Aggregates.project(Projections.fields(
                     Projections.include("namespace", "component"),
@@ -44,16 +45,20 @@ public class MongoReportServlet extends HttpServlet {
                 )),
                 // Group by date, namespace, and component
                 Aggregates.group(
-                    new Document("date", "$date")
+                    new Document()
+                        .append("date", "$date")
                         .append("namespace", "$namespace")
                         .append("component", "$component"),
-                    new Document("count", new Document("$sum", 1))
+                    Accumulators.sum("count", 1) // Use Accumulators helper
                 ),
                 // Sort by date, namespace, component
                 Aggregates.sort(new Document("_id.date", 1)
                     .append("_id.namespace", 1)
                     .append("_id.component", 1))
-            )).into(new ArrayList<>());
+            );
+
+            // Execute aggregation
+            List<Document> results = collection.aggregate(pipeline).into(new ArrayList<>());
 
             // Pass results to JSP
             req.setAttribute("results", results);

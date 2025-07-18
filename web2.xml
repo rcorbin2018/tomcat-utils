@@ -1,0 +1,29 @@
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd"
+         version="5.0">
+    <servlet>
+        <servlet-name>EventSummaryServlet</servlet-name>
+        <servlet-class>com.cigna.emu.servlet.EventSummaryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EventSummaryServlet</servlet-name>
+        <url-pattern>/summary</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>EventDetailServlet</servlet-name>
+        <servlet-class>com.cigna.emu.servlet.EventDetailServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EventDetailServlet</servlet-name>
+        <url-pattern>/detail</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>TransactionReportServlet</servlet-name>
+        <servlet-class>com.cigna.emu.servlet.TransactionReportServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>TransactionReportServlet</servlet-name>
+        <url-pattern>/transaction</url-pattern>
+    </servlet-mapping>
+</web-app>

@@ -9,18 +9,26 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Event Details</h1>
+        <h1 class="my-4">Event Details - <c:out value="${selectedDate}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link" href="summary">Summary</a></li>
-            <li class="nav-item"><a class="nav-link active" href="detail">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link" href="summary?date=${selectedDate}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link active" href="detail?date=${selectedDate}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?date=${selectedDate}&limit=${limit}">Transactions</a></li>
         </ul>
 
         <!-- Filter Form -->
-        <form class="mb-4">
+        <form class="mb-4" method="get" action="detail">
             <div class="row">
+                <div class="col-md-3">
+                    <label for="date" class="form-label">Select Date</label>
+                    <input type="date" name="date" id="date" class="form-control" value="${selectedDate}" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="limit" class="form-label">Event Limit</label>
+                    <input type="number" name="limit" id="limit" class="form-control" value="${limit}" min="1" placeholder="5000">
+                </div>
                 <div class="col-md-3">
                     <input type="text" name="component" class="form-control" placeholder="Component" value="${param.component}">
                 </div>
@@ -34,39 +42,46 @@
                         <option value="fail" ${param.outcome == 'fail' ? 'selected' : ''}>Fail</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 align-self-end">
                     <button type="submit" class="btn btn-primary">Filter</button>
                 </div>
             </div>
         </form>
 
+        <!-- No Events Message -->
+        <c:if test="${empty events}">
+            <div class="alert alert-info">No events found for <c:out value="${selectedDate}" />.</div>
+        </c:if>
+
         <!-- Detailed Table -->
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Component</th>
-                    <th>Namespace</th>
-                    <th>Event</th>
-                    <th>Outcome</th>
-                    <th>Message</th>
-                </tr>
-            </thead>
-            <tbody>
-                <c:forEach var="event" items="${events}">
+        <c:if test="${not empty events}">
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
-                        <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
-                        <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
-                        <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>
-                        <td class="${event.outcome == 'fail' ? 'text-danger' : event.outcome == 'pass' ? 'text-success' : ''}">
-                            <c:out value="${event.outcome != null ? event.outcome : 'N/A'}" />
-                        </td>
-                        <td><c:out value="${event.message != null ? event.message : 'N/A'}" /></td>
+                        <th>Timestamp</th>
+                        <th>Component</th>
+                        <th>Namespace</th>
+                        <th>Event</th>
+                        <th>Outcome</th>
+                        <th>Message</th>
                     </tr>
-                </c:forEach>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <c:forEach var="event" items="${events}">
+                        <tr>
+                            <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
+                            <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
+                            <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
+                            <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>
+                            <td class="${event.outcome == 'fail' ? 'text-danger' : event.outcome == 'pass' ? 'text-success' : ''}">
+                                <c:out value="${event.outcome != null ? event.outcome : 'N/A'}" />
+                            </td>
+                            <td><c:out value="${event.message != null ? event.message : 'N/A'}" /></td>
+                        </tr>
+                    </c:forEach>
+                </tbody>
+            </table>
+        </c:if>
     </div>
 </body>
 </html>

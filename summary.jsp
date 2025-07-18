@@ -78,6 +78,15 @@
                     data: [<c:forEach var="entry" items="${componentCounts}">${entry.value},</c:forEach>],
                     backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
                 }]
+            },
+            options: {
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const component = e.chart.data.labels[index];
+                        window.location.href = 'filteredEvents?component=' + encodeURIComponent(component);
+                    }
+                }
             }
         });
 
@@ -91,6 +100,15 @@
                     data: [<c:forEach var="entry" items="${outcomeCounts}">${entry.value},</c:forEach>],
                     backgroundColor: ['#FF6384', '#36A2EB']
                 }]
+            },
+            options: {
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const outcome = e.chart.data.labels[index];
+                        window.location.href = 'filteredEvents?outcome=' + encodeURIComponent(outcome);
+                    }
+                }
             }
         });
 
@@ -105,6 +123,15 @@
                     borderColor: '#36A2EB',
                     fill: false
                 }]
+            },
+            options: {
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const hour = e.chart.data.labels[index];
+                        window.location.href = 'filteredEvents?hour=' + encodeURIComponent(hour);
+                    }
+                }
             }
         });
     </script>

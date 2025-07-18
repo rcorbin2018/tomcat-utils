@@ -13,12 +13,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 @WebServlet("/detail")
 public class EventDetailServlet extends HttpServlet {
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private MongoClient mongoClient;
     private MongoCollection<Document> collection;
 
@@ -57,8 +58,13 @@ public class EventDetailServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             LocalDateTime timestamp = null;
-            if (doc.getDate("timestamp") != null) {
-                timestamp = doc.getDate("timestamp").toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+            String timestampStr = doc.getString("timestamp");
+            if (timestampStr != null) {
+                try {
+                    timestamp = LocalDateTime.parse(timestampStr, ISO_FORMATTER);
+                } catch (Exception e) {
+                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
+                }
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

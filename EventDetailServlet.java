@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -37,6 +38,11 @@ public class EventDetailServlet extends HttpServlet {
         String component = req.getParameter("component");
         String namespace = req.getParameter("namespace");
         String outcome = req.getParameter("outcome");
+        String dateParam = req.getParameter("date");
+        String limitParam = req.getParameter("limit");
+        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
+        if (limit <= 0) limit = 5000;
 
         List<Event> events = new ArrayList<>();
         Document query = new Document();
@@ -49,14 +55,13 @@ public class EventDetailServlet extends HttpServlet {
         if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
             query.append("outcome", outcome);
         }
-        // Filter for last 24 hours
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusHours(24);
+        LocalDateTime startOfDay = selectedDate.atStartOfDay();
+        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
         query.append("timestamp",
-                new Document("$gte", yesterday.format(ISO_FORMATTER))
-                        .append("$lte", now.format(ISO_FORMATTER)));
+                new Document("$gte", startOfDay.format(ISO_FORMATTER))
+                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
 
-        for (Document doc : collection.find(query)) {
+        for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
             if (event == null) {
                 System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
@@ -66,6 +71,8 @@ public class EventDetailServlet extends HttpServlet {
         }
 
         req.setAttribute("events", events);
+        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/detail.jsp").forward(req, resp);
     }
 

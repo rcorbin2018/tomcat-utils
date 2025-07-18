@@ -26,4 +26,12 @@
         <servlet-name>TransactionReportServlet</servlet-name>
         <url-pattern>/transaction</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>EventFilterServlet</servlet-name>
+        <servlet-class>com.cigna.emu.servlet.EventFilterServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EventFilterServlet</servlet-name>
+        <url-pattern>/filteredEvents</url-pattern>
+    </servlet-mapping>
 </web-app>

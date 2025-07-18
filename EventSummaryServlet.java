@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Map;
 @WebServlet("/summary")
 public class EventSummaryServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
+    private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private MongoClient mongoClient;
     private MongoCollection<Document> collection;
 
@@ -41,8 +43,15 @@ public class EventSummaryServlet extends HttpServlet {
         Map<String, Integer> hourlyCounts = new HashMap<>();
         List<Event> recentEvents = new ArrayList<>();
 
+        // Filter for last 24 hours
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime yesterday = now.minusHours(24);
+        Document query = new Document("timestamp",
+                new Document("$gte", yesterday.format(ISO_FORMATTER))
+                        .append("$lte", now.format(ISO_FORMATTER)));
+
         // Query MongoDB
-        for (Document doc : collection.find().limit(100)) {
+        for (Document doc : collection.find(query)) {
             Event event = parseEvent(doc);
             if (event == null) {
                 System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
@@ -76,13 +85,19 @@ public class EventSummaryServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             LocalDateTime timestamp = null;
-            String timestampStr = doc.getString("timestamp");
+            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
                     timestamp = LocalDateTime.parse(timestampStr, ISO_FORMATTER);
-                } catch (Exception e) {
-                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
+                } catch (DateTimeParseException e) {
+                    try {
+                        timestamp = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
+                    } catch (DateTimeParseException e2) {
+                        System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
+                    }
                 }
+            } else {
+                System.err.println("Timestamp field missing or null for document _id: " + doc.get("_id"));
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -36,27 +37,32 @@ public class TransactionReportServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String dateParam = req.getParameter("date");
+        String limitParam = req.getParameter("limit");
+        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
+        if (limit <= 0) limit = 5000;
+
         Map<String, List<Event>> transactions = new HashMap<>();
-
-        // Filter for last 24 hours
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusHours(24);
+        LocalDateTime startOfDay = selectedDate.atStartOfDay();
+        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
         Document query = new Document("timestamp",
-                new Document("$gte", yesterday.format(ISO_FORMATTER))
-                        .append("$lte", now.format(ISO_FORMATTER)));
+                new Document("$gte", startOfDay.format(ISO_FORMATTER))
+                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
 
-        for (Document doc : collection.find(query)) {
+        for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
             if (event == null) {
                 System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
                 continue;
             }
-            // Assume transaction ID is part of eventDetails (e.g., "tx:ID")
             String transactionId = extractTransactionId(event.getEventDetails());
             transactions.computeIfAbsent(transactionId, k -> new ArrayList<>()).add(event);
         }
 
         req.setAttribute("transactions", transactions);
+        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/transaction.jsp").forward(req, resp);
     }
 

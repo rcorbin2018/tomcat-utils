@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -36,48 +37,48 @@ public class EventSummaryServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        // Aggregate data
+        String dateParam = req.getParameter("date");
+        String limitParam = req.getParameter("limit");
+        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
+        if (limit <= 0) limit = 5000;
+
+        LocalDateTime startOfDay = selectedDate.atStartOfDay();
+        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
+
         Map<String, Integer> componentCounts = new HashMap<>();
         Map<String, Integer> namespaceCounts = new HashMap<>();
         Map<String, Integer> outcomeCounts = new HashMap<>();
         Map<String, Integer> hourlyCounts = new HashMap<>();
         List<Event> recentEvents = new ArrayList<>();
 
-        // Filter for last 24 hours
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusHours(24);
         Document query = new Document("timestamp",
-                new Document("$gte", yesterday.format(ISO_FORMATTER))
-                        .append("$lte", now.format(ISO_FORMATTER)));
+                new Document("$gte", startOfDay.format(ISO_FORMATTER))
+                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
 
-        // Query MongoDB
-        for (Document doc : collection.find(query)) {
+        for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
             if (event == null) {
                 System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
                 continue;
             }
             recentEvents.add(event);
-
-            // Component counts
             componentCounts.merge(event.getComponent(), 1, Integer::sum);
-            // Namespace counts
             namespaceCounts.merge(event.getNamespace(), 1, Integer::sum);
-            // Outcome counts
             outcomeCounts.merge(event.getOutcome(), 1, Integer::sum);
-            // Hourly counts
             if (event.getTimestamp() != null) {
                 String hour = event.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
                 hourlyCounts.merge(hour, 1, Integer::sum);
             }
         }
 
-        // Set attributes for JSP
         req.setAttribute("componentCounts", componentCounts);
         req.setAttribute("namespaceCounts", namespaceCounts);
         req.setAttribute("outcomeCounts", outcomeCounts);
         req.setAttribute("hourlyCounts", hourlyCounts);
         req.setAttribute("recentEvents", recentEvents);
+        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("limit", limit);
 
         req.getRequestDispatcher("/WEB-INF/views/summary.jsp").forward(req, resp);
     }

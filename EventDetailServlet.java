@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,19 +42,36 @@ public class EventDetailServlet extends HttpServlet {
         if (outcome != null && !outcome.isEmpty()) query.append("outcome", outcome);
 
         for (Document doc : collection.find(query).limit(100)) {
-            events.add(new Event(
-                doc.getString("component"),
-                doc.getString("namespace"),
-                doc.getDate("timestamp").toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
-                doc.getString("outcome"),
-                doc.getString("event"),
-                doc.getString("eventDetails"),
-                doc.getString("message")
-            ));
+            Event event = parseEvent(doc);
+            if (event == null) {
+                System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
+                continue;
+            }
+            events.add(event);
         }
 
         req.setAttribute("events", events);
         req.getRequestDispatcher("/WEB-INF/views/detail.jsp").forward(req, resp);
+    }
+
+    private Event parseEvent(Document doc) {
+        try {
+            LocalDateTime timestamp = null;
+            if (doc.getDate("timestamp") != null) {
+                timestamp = doc.getDate("timestamp").toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+            }
+            String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
+            String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";
+            String outcome = doc.getString("outcome") != null ? doc.getString("outcome") : "Unknown";
+            String event = doc.getString("event") != null ? doc.getString("event") : "Unknown";
+            String eventDetails = doc.getString("eventDetails") != null ? doc.getString("eventDetails") : "Unknown";
+            String message = doc.getString("message") != null ? doc.getString("message") : "Unknown";
+
+            return new Event(component, namespace, timestamp, outcome, event, eventDetails, message);
+        } catch (Exception e) {
+            System.err.println("Error parsing document with _id: " + doc.get("_id") + " - " + e.getMessage());
+            return null;
+        }
     }
 
     @Override

@@ -9,19 +9,45 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Filtered Events - <c:out value="${filterType}" /></h1>
+        <h1 class="my-4">Filtered Events - <c:out value="${filterType}" /> - <c:out value="${selectedDate}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link" href="summary">Summary</a></li>
-            <li class="nav-item"><a class="nav-link" href="detail">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link" href="summary?date=${selectedDate}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link" href="detail?date=${selectedDate}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?date=${selectedDate}&limit=${limit}">Transactions</a></li>
             <li class="nav-item"><a class="nav-link active" href="#">Filtered Events</a></li>
         </ul>
 
+        <!-- Date and Limit Form -->
+        <form class="mb-4" method="get" action="filteredEvents">
+            <div class="row">
+                <div class="col-md-3">
+                    <label for="date" class="form-label">Select Date</label>
+                    <input type="date" name="date" id="date" class="form-control" value="${selectedDate}" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="limit" class="form-label">Event Limit</label>
+                    <input type="number" name="limit" id="limit" class="form-control" value="${limit}" min="1" placeholder="5000">
+                </div>
+                <c:if test="${not empty param.component}">
+                    <input type="hidden" name="component" value="${param.component}">
+                </c:if>
+                <c:if test="${not empty param.outcome}">
+                    <input type="hidden" name="outcome" value="${param.outcome}">
+                </c:if>
+                <c:if test="${not empty param.hour}">
+                    <input type="hidden" name="hour" value="${param.hour}">
+                </c:if>
+                <div class="col-md-3 align-self-end">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </div>
+        </form>
+
         <!-- No Events Message -->
         <c:if test="${empty events}">
-            <div class="alert alert-info">No events found for <c:out value="${filterType}" /> in the last 24 hours.</div>
+            <div class="alert alert-info">No events found for <c:out value="${filterType}" /> on <c:out value="${selectedDate}" />.</div>
         </c:if>
 
         <!-- Filtered Events Table -->

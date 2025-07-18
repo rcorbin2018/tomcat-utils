@@ -19,33 +19,40 @@
             <li class="nav-item"><a class="nav-link active" href="#">Filtered Events</a></li>
         </ul>
 
+        <!-- No Events Message -->
+        <c:if test="${empty events}">
+            <div class="alert alert-info">No events found for <c:out value="${filterType}" /> in the last 24 hours.</div>
+        </c:if>
+
         <!-- Filtered Events Table -->
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Component</th>
-                    <th>Namespace</th>
-                    <th>Event</th>
-                    <th>Outcome</th>
-                    <th>Message</th>
-                </tr>
-            </thead>
-            <tbody>
-                <c:forEach var="event" items="${events}">
+        <c:if test="${not empty events}">
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
-                        <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
-                        <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
-                        <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>
-                        <td class="${event.outcome == 'fail' ? 'text-danger' : event.outcome == 'pass' ? 'text-success' : ''}">
-                            <c:out value="${event.outcome != null ? event.outcome : 'N/A'}" />
-                        </td>
-                        <td><c:out value="${event.message != null ? event.message : 'N/A'}" /></td>
+                        <th>Timestamp</th>
+                        <th>Component</th>
+                        <th>Namespace</th>
+                        <th>Event</th>
+                        <th>Outcome</th>
+                        <th>Message</th>
                     </tr>
-                </c:forEach>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <c:forEach var="event" items="${events}">
+                        <tr>
+                            <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
+                            <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
+                            <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
+                            <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>
+                            <td class="${event.outcome == 'fail' ? 'text-danger' : event.outcome == 'pass' ? 'text-success' : ''}">
+                                <c:out value="${event.outcome != null ? event.outcome : 'N/A'}" />
+                            </td>
+                            <td><c:out value="${event.message != null ? event.message : 'N/A'}" /></td>
+                        </tr>
+                    </c:forEach>
+                </tbody>
+            </table>
+        </c:if>
     </div>
 </body>
 </html>

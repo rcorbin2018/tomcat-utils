@@ -20,7 +20,7 @@
 
         <!-- Transaction Tables -->
         <c:forEach var="entry" items="${transactions}">
-            <h3>Transaction ID: ${entry.key}</h3>
+            <h3>Transaction ID: <c:out value="${entry.key != null ? entry.key : 'N/A'}" /></h3>
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -35,12 +35,14 @@
                 <tbody>
                     <c:forEach var="event" items="${entry.value}">
                         <tr>
-                            <td>${event.timestamp}</td>
-                            <td>${event.component}</td>
-                            <td>${event.namespace}</td>
-                            <td>${event.event}</td>
-                            <td class="${event.outcome == 'fail' ? 'text-danger' : 'text-success'}">${event.outcome}</td>
-                            <td>${event.message}</td>
+                            <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
+                            <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
+                            <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
+                            <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>
+                            <td class="${event.outcome == 'fail' ? 'text-danger' : event.outcome == 'pass' ? 'text-success' : ''}">
+                                <c:out value="${event.outcome != null ? event.outcome : 'N/A'}" />
+                            </td>
+                            <td><c:out value="${event.message != null ? event.message : 'N/A'}" /></td>
                         </tr>
                     </c:forEach>
                 </tbody>

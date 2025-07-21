@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -37,38 +36,38 @@ public class EventFilterServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String component = req.getParameter("component");
         String outcome = req.getParameter("outcome");
-        String hour = req.getParameter("hour");
-        String dateParam = req.getParameter("date");
+        String minute = req.getParameter("minute");
+        String datetimeParam = req.getParameter("datetime");
         String limitParam = req.getParameter("limit");
-        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        LocalDateTime selectedDateTime = datetimeParam != null ? LocalDateTime.parse(datetimeParam, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")) : LocalDateTime.now().withSecond(0).withNano(0);
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
         List<Event> events = new ArrayList<>();
         Document query = new Document();
-        LocalDateTime startOfDay = selectedDate.atStartOfDay();
-        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
+        LocalDateTime startOfHour = selectedDateTime.withSecond(0).withNano(0);
+        LocalDateTime endOfHour = startOfHour.plusHours(1).minusNanos(1);
         query.append("timestamp",
-                new Document("$gte", startOfDay.format(ISO_FORMATTER))
-                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
+                new Document("$gte", startOfHour.format(ISO_FORMATTER))
+                        .append("$lte", endOfHour.format(ISO_FORMATTER)));
 
         if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
             query.append("component", component);
         } else if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
             query.append("outcome", outcome);
-        } else if (hour != null && !hour.isEmpty()) {
+        } else if (minute != null && !minute.isEmpty()) {
             try {
-                LocalDateTime start = LocalDateTime.parse(hour + ":00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-                LocalDateTime end = start.plusHours(1);
+                LocalDateTime start = LocalDateTime.parse(minute + ":00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                LocalDateTime end = start.plusMinutes(60).minusNanos(1);
                 query.append("timestamp", new Document("$gte", start.format(ISO_FORMATTER))
-                                             .append("$lt", end.format(ISO_FORMATTER)));
+                                             .append("$lte", end.format(ISO_FORMATTER)));
             } catch (Exception e) {
-                System.err.println("Error parsing hour parameter: " + hour + " - " + e.getMessage());
+                System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
         } else {
             req.setAttribute("events", events);
             req.setAttribute("filterType", "Invalid Filter");
-            req.setAttribute("selectedDate", selectedDate.toString());
+            req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
             req.setAttribute("limit", limit);
             req.getRequestDispatcher("/WEB-INF/views/filteredEvents.jsp").forward(req, resp);
             return;
@@ -86,8 +85,8 @@ public class EventFilterServlet extends HttpServlet {
         req.setAttribute("events", events);
         req.setAttribute("filterType", component != null ? "Component: " + component :
                                      outcome != null ? "Outcome: " + outcome :
-                                     hour != null ? "Hour: " + hour : "Filtered Events");
-        req.setAttribute("selectedDate", selectedDate.toString());
+                                     minute != null ? "Minute: " + minute : "Filtered Events");
+        req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
         req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/filteredEvents.jsp").forward(req, resp);
     }
@@ -102,7 +101,7 @@ public class EventFilterServlet extends HttpServlet {
                 } catch (DateTimeParseException e) {
                     try {
                         timestamp = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
-                    }phe catch (DateTimeParseException e2) {
+                    } catch (DateTimeParseException e2) {
                         System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
                     }
                 }

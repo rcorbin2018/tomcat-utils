@@ -13,6 +13,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -25,6 +27,8 @@ public class EventSummaryServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+    private static final ZoneId EST_ZONE = ZoneId.of("America/New_York");
+    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
     private MongoClient mongoClient;
     private MongoCollection<Document> collection;
 
@@ -41,20 +45,26 @@ public class EventSummaryServlet extends HttpServlet {
         String endDatetimeParam = req.getParameter("endDatetime");
         String limitParam = req.getParameter("limit");
         
-        LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
-        LocalDateTime startDatetime = startDatetimeParam != null ? LocalDateTime.parse(startDatetimeParam, INPUT_FORMATTER) : now.minusHours(1);
-        LocalDateTime endDatetime = endDatetimeParam != null ? LocalDateTime.parse(endDatetimeParam, INPUT_FORMATTER) : now;
+        LocalDateTime now = LocalDateTime.now(EST_ZONE).withSecond(0).withNano(0);
+        LocalDateTime startLocal = startDatetimeParam != null ? LocalDateTime.parse(startDatetimeParam, INPUT_FORMATTER) : now.minusHours(1);
+        LocalDateTime endLocal = endDatetimeParam != null ? LocalDateTime.parse(endDatetimeParam, INPUT_FORMATTER) : now;
         
         // Ensure endDatetime is after startDatetime
-        if (endDatetime.isBefore(startDatetime) || endDatetime.equals(startDatetime)) {
-            endDatetime = startDatetime.plusHours(1);
+        if (endLocal.isBefore(startLocal) || endLocal.equals(startLocal)) {
+            endLocal = startLocal.plusHours(1);
         }
-        
+
+        // Convert EST to UTC
+        ZonedDateTime startZoned = startLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
+        ZonedDateTime endZoned = endLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
+        LocalDateTime startUtc = startZoned.toLocalDateTime();
+        LocalDateTime endUtc = endZoned.toLocalDateTime();
+
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
-        LocalDateTime startOfRange = startDatetime.withSecond(0).withNano(0);
-        LocalDateTime endOfRange = endDatetime.withSecond(59).withNano(999999999);
+        LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
+        LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
 
         Map<String, Integer> componentCounts = new HashMap<>();
         Map<String, Integer> namespaceCounts = new HashMap<>();
@@ -77,7 +87,9 @@ public class EventSummaryServlet extends HttpServlet {
             namespaceCounts.merge(event.getNamespace(), 1, Integer::sum);
             outcomeCounts.merge(event.getOutcome(), 1, Integer::sum);
             if (event.getTimestamp() != null) {
-                String minute = event.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                // Convert UTC timestamp to EST for minute chart labels
+                ZonedDateTime eventZoned = event.getTimestamp().atZone(UTC_ZONE).withZoneSameInstant(EST_ZONE);
+                String minute = eventZoned.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
                 minuteCounts.merge(minute, 1, Integer::sum);
             }
         }
@@ -87,8 +99,8 @@ public class EventSummaryServlet extends HttpServlet {
         req.setAttribute("outcomeCounts", outcomeCounts);
         req.setAttribute("minuteCounts", minuteCounts);
         req.setAttribute("recentEvents", recentEvents);
-        req.setAttribute("startDatetime", startDatetime.format(INPUT_FORMATTER));
-        req.setAttribute("endDatetime", endDatetime.format(INPUT_FORMATTER));
+        req.setAttribute("startDatetime", startLocal.format(INPUT_FORMATTER));
+        req.setAttribute("endDatetime", endLocal.format(INPUT_FORMATTER));
         req.setAttribute("limit", limit);
 
         req.getRequestDispatcher("/WEB-INF/views/summary.jsp").forward(req, resp);

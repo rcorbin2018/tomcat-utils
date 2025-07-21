@@ -9,13 +9,13 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Filtered Events - <c:out value="${filterType}" /> - <c:out value="${selectedDateTime}" /></h1>
+        <h1 class="my-4">Filtered Events - <c:out value="${filterType}" /> - Between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link" href="summary?datetime=${selectedDateTime}&limit=${limit}">Summary</a></li>
-            <li class="nav-item"><a class="nav-link" href="detail?datetime=${selectedDateTime}&limit=${limit}">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction?datetime=${selectedDateTime}&limit=${limit}">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link" href="summary?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link" href="detail?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Transactions</a></li>
             <li class="nav-item"><a class="nav-link active" href="#">Filtered Events</a></li>
         </ul>
 
@@ -23,8 +23,12 @@
         <form class="mb-4" method="get" action="filteredEvents">
             <div class="row">
                 <div class="col-md-3">
-                    <label for="datetime" class="form-label">Select Date and Time</label>
-                    <input type="datetime-local" name="datetime" id="datetime" class="form-control" value="${selectedDateTime}" required step="60">
+                    <label for="startDatetime" class="form-label">Start Date and Time</label>
+                    <input type="datetime-local" name="startDatetime" id="startDatetime" class="form-control" value="${startDatetime}" required step="60">
+                </div>
+                <div class="col-md-3">
+                    <label for="endDatetime" class="form-label">End Date and Time</label>
+                    <input type="datetime-local" name="endDatetime" id="endDatetime" class="form-control" value="${endDatetime}" required step="60">
                 </div>
                 <div class="col-md-3">
                     <label for="limit" class="form-label">Event Limit</label>
@@ -47,7 +51,7 @@
 
         <!-- No Events Message -->
         <c:if test="${empty events}">
-            <div class="alert alert-info">No events found for <c:out value="${filterType}" /> on <c:out value="${selectedDateTime}" />.</div>
+            <div class="alert alert-info">No events found for <c:out value="${filterType}" /> between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" />.</div>
         </c:if>
 
         <!-- Filtered Events Table -->

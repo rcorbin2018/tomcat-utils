@@ -84,7 +84,9 @@
                             <td>
                                 <c:choose>
                                     <c:when test="${event.timestamp != null}">
-                                        <fmt:parseDate value="${event.timestamp}" pattern="yyyy-MM-dd'T'HH:mm:ss.SSS" var="parsedDate" />
+                                        <%-- Truncate to milliseconds by formatting to string and re-parsing --%>
+                                        <fmt:formatDate value="${event.timestamp}" pattern="yyyy-MM-dd'T'HH:mm:ss.SSS" var="truncatedTimestamp" />
+                                        <fmt:parseDate value="${truncatedTimestamp}" pattern="yyyy-MM-dd'T'HH:mm:ss.SSS" var="parsedDate" />
                                         <fmt:formatDate value="${parsedDate}" pattern="yyyy-MM-dd HH:mm:ss" timeZone="America/New_York" />
                                     </c:when>
                                     <c:otherwise>N/A</c:otherwise>

@@ -10,21 +10,25 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Event Summary Report - <c:out value="${selectedDateTime}" /></h1>
+        <h1 class="my-4">Event Summary Report - Between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link active" href="summary?datetime=${selectedDateTime}&limit=${limit}">Summary</a></li>
-            <li class="nav-item"><a class="nav-link" href="detail?datetime=${selectedDateTime}&limit=${limit}">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction?datetime=${selectedDateTime}&limit=${limit}">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link active" href="summary?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link" href="detail?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?startDatetime=${startDatetime}&endDatetime=${endDatetime}&limit=${limit}">Transactions</a></li>
         </ul>
 
         <!-- DateTime and Limit Form -->
         <form class="mb-4" method="get" action="summary">
             <div class="row">
                 <div class="col-md-3">
-                    <label for="datetime" class="form-label">Select Date and Time</label>
-                    <input type="datetime-local" name="datetime" id="datetime" class="form-control" value="${selectedDateTime}" required step="60">
+                    <label for="startDatetime" class="form-label">Start Date and Time</label>
+                    <input type="datetime-local" name="startDatetime" id="startDatetime" class="form-control" value="${startDatetime}" required step="60">
+                </div>
+                <div class="col-md-3">
+                    <label for="endDatetime" class="form-label">End Date and Time</label>
+                    <input type="datetime-local" name="endDatetime" id="endDatetime" class="form-control" value="${endDatetime}" required step="60">
                 </div>
                 <div class="col-md-3">
                     <label for="limit" class="form-label">Event Limit</label>
@@ -38,7 +42,7 @@
 
         <!-- No Events Message -->
         <c:if test="${empty recentEvents}">
-            <div class="alert alert-info">No events found for <c:out value="${selectedDateTime}" />.</div>
+            <div class="alert alert-info">No events found between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" />.</div>
         </c:if>
 
         <!-- Charts -->
@@ -109,9 +113,10 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const component = e.chart.data.labels[index];
-                            const datetime = '${selectedDateTime}';
+                            const startDatetime = '${startDatetime}';
+                            const endDatetime = '${endDatetime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?component=' + encodeURIComponent(component) + '&datetime=' + datetime + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?component=' + encodeURIComponent(component) + '&startDatetime=' + startDatetime + '&endDatetime=' + endDatetime + '&limit=' + limit;
                         }
                     }
                 }
@@ -133,9 +138,10 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const outcome = e.chart.data.labels[index];
-                            const datetime = '${selectedDateTime}';
+                            const startDatetime = '${startDatetime}';
+                            const endDatetime = '${endDatetime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?outcome=' + encodeURIComponent(outcome) + '&datetime=' + datetime + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?outcome=' + encodeURIComponent(outcome) + '&startDatetime=' + startDatetime + '&endDatetime=' + endDatetime + '&limit=' + limit;
                         }
                     }
                 }
@@ -158,9 +164,10 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const minute = e.chart.data.labels[index];
-                            const datetime = '${selectedDateTime}';
+                            const startDatetime = '${startDatetime}';
+                            const endDatetime = '${endDatetime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?minute=' + encodeURIComponent(minute) + '&datetime=' + datetime + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?minute=' + encodeURIComponent(minute) + '&startDatetime=' + startDatetime + '&endDatetime=' + endDatetime + '&limit=' + limit;
                         }
                     }
                 }

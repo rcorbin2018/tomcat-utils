@@ -18,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @WebServlet("/filteredEvents")
@@ -72,7 +73,7 @@ public class EventFilterServlet extends HttpServlet {
         } else if (minute != null && !minute.isEmpty()) {
             try {
                 // Parse minute as EST, convert to UTC
-                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
                 ZonedDateTime minuteZoned = minuteLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
                 LocalDateTime startMinuteUtc = minuteZoned.toLocalDateTime();
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
@@ -110,14 +111,16 @@ public class EventFilterServlet extends HttpServlet {
 
     private Event parseEvent(Document doc) {
         try {
-            LocalDateTime timestamp = null;
+            Date timestamp = null;
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
-                    timestamp = LocalDateTime.parse(timestampStr, ISO_FORMATTER);
+                    ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
+                    timestamp = Date.from(zdt.toInstant());
                 } catch (DateTimeParseException e) {
                     try {
-                        timestamp = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
+                        LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
+                        timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                     } catch (DateTimeParseException e2) {
                         System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
                     }

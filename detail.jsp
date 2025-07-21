@@ -9,21 +9,21 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Event Details - <c:out value="${selectedDate}" /></h1>
+        <h1 class="my-4">Event Details - <c:out value="${selectedDateTime}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link" href="summary?date=${selectedDate}&limit=${limit}">Summary</a></li>
-            <li class="nav-item"><a class="nav-link active" href="detail?date=${selectedDate}&limit=${limit}">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction?date=${selectedDate}&limit=${limit}">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link" href="summary?datetime=${selectedDateTime}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link active" href="detail?datetime=${selectedDateTime}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?datetime=${selectedDateTime}&limit=${limit}">Transactions</a></li>
         </ul>
 
         <!-- Filter Form -->
         <form class="mb-4" method="get" action="detail">
             <div class="row">
                 <div class="col-md-3">
-                    <label for="date" class="form-label">Select Date</label>
-                    <input type="date" name="date" id="date" class="form-control" value="${selectedDate}" required>
+                    <label for="datetime" class="form-label">Select Date and Time</label>
+                    <input type="datetime-local" name="datetime" id="datetime" class="form-control" value="${selectedDateTime}" required step="60">
                 </div>
                 <div class="col-md-3">
                     <label for="limit" class="form-label">Event Limit</label>
@@ -50,7 +50,7 @@
 
         <!-- No Events Message -->
         <c:if test="${empty events}">
-            <div class="alert alert-info">No events found for <c:out value="${selectedDate}" />.</div>
+            <div class="alert alert-info">No events found for <c:out value="${selectedDateTime}" />.</div>
         </c:if>
 
         <!-- Detailed Table -->

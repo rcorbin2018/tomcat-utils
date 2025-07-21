@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -37,24 +36,24 @@ public class EventSummaryServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String dateParam = req.getParameter("date");
+        String datetimeParam = req.getParameter("datetime");
         String limitParam = req.getParameter("limit");
-        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        LocalDateTime selectedDateTime = datetimeParam != null ? LocalDateTime.parse(datetimeParam, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")) : LocalDateTime.now().withSecond(0).withNano(0);
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
-        LocalDateTime startOfDay = selectedDate.atStartOfDay();
-        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
+        LocalDateTime startOfHour = selectedDateTime.withSecond(0).withNano(0);
+        LocalDateTime endOfHour = startOfHour.plusHours(1).minusNanos(1);
 
         Map<String, Integer> componentCounts = new HashMap<>();
         Map<String, Integer> namespaceCounts = new HashMap<>();
         Map<String, Integer> outcomeCounts = new HashMap<>();
-        Map<String, Integer> hourlyCounts = new HashMap<>();
+        Map<String, Integer> minuteCounts = new HashMap<>();
         List<Event> recentEvents = new ArrayList<>();
 
         Document query = new Document("timestamp",
-                new Document("$gte", startOfDay.format(ISO_FORMATTER))
-                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
+                new Document("$gte", startOfHour.format(ISO_FORMATTER))
+                        .append("$lte", endOfHour.format(ISO_FORMATTER)));
 
         for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
@@ -67,17 +66,17 @@ public class EventSummaryServlet extends HttpServlet {
             namespaceCounts.merge(event.getNamespace(), 1, Integer::sum);
             outcomeCounts.merge(event.getOutcome(), 1, Integer::sum);
             if (event.getTimestamp() != null) {
-                String hour = event.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
-                hourlyCounts.merge(hour, 1, Integer::sum);
+                String minute = event.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                minuteCounts.merge(minute, 1, Integer::sum);
             }
         }
 
         req.setAttribute("componentCounts", componentCounts);
         req.setAttribute("namespaceCounts", namespaceCounts);
         req.setAttribute("outcomeCounts", outcomeCounts);
-        req.setAttribute("hourlyCounts", hourlyCounts);
+        req.setAttribute("minuteCounts", minuteCounts);
         req.setAttribute("recentEvents", recentEvents);
-        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
         req.setAttribute("limit", limit);
 
         req.getRequestDispatcher("/WEB-INF/views/summary.jsp").forward(req, resp);

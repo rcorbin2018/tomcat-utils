@@ -10,21 +10,21 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Event Summary Report - <c:out value="${selectedDate}" /></h1>
+        <h1 class="my-4">Event Summary Report - <c:out value="${selectedDateTime}" /></h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><a class="nav-link active" href="summary?date=${selectedDate}&limit=${limit}">Summary</a></li>
-            <li class="nav-item"><a class="nav-link" href="detail?date=${selectedDate}&limit=${limit}">Details</a></li>
-            <li class="nav-item"><a class="nav-link" href="transaction?date=${selectedDate}&limit=${limit}">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link active" href="summary?datetime=${selectedDateTime}&limit=${limit}">Summary</a></li>
+            <li class="nav-item"><a class="nav-link" href="detail?datetime=${selectedDateTime}&limit=${limit}">Details</a></li>
+            <li class="nav-item"><a class="nav-link" href="transaction?datetime=${selectedDateTime}&limit=${limit}">Transactions</a></li>
         </ul>
 
-        <!-- Date and Limit Form -->
+        <!-- DateTime and Limit Form -->
         <form class="mb-4" method="get" action="summary">
             <div class="row">
                 <div class="col-md-3">
-                    <label for="date" class="form-label">Select Date</label>
-                    <input type="date" name="date" id="date" class="form-control" value="${selectedDate}" required>
+                    <label for="datetime" class="form-label">Select Date and Time</label>
+                    <input type="datetime-local" name="datetime" id="datetime" class="form-control" value="${selectedDateTime}" required step="60">
                 </div>
                 <div class="col-md-3">
                     <label for="limit" class="form-label">Event Limit</label>
@@ -38,7 +38,7 @@
 
         <!-- No Events Message -->
         <c:if test="${empty recentEvents}">
-            <div class="alert alert-info">No events found for <c:out value="${selectedDate}" />.</div>
+            <div class="alert alert-info">No events found for <c:out value="${selectedDateTime}" />.</div>
         </c:if>
 
         <!-- Charts -->
@@ -55,8 +55,8 @@
             </div>
             <div class="row mt-4">
                 <div class="col-md-12">
-                    <h3>Events by Hour</h3>
-                    <canvas id="hourlyChart"></canvas>
+                    <h3>Events by Minute</h3>
+                    <canvas id="minuteChart"></canvas>
                 </div>
             </div>
 
@@ -109,9 +109,9 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const component = e.chart.data.labels[index];
-                            const date = '${selectedDate}';
+                            const datetime = '${selectedDateTime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?component=' + encodeURIComponent(component) + '&date=' + date + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?component=' + encodeURIComponent(component) + '&datetime=' + datetime + '&limit=' + limit;
                         }
                     }
                 }
@@ -133,22 +133,22 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const outcome = e.chart.data.labels[index];
-                            const date = '${selectedDate}';
+                            const datetime = '${selectedDateTime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?outcome=' + encodeURIComponent(outcome) + '&date=' + date + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?outcome=' + encodeURIComponent(outcome) + '&datetime=' + datetime + '&limit=' + limit;
                         }
                     }
                 }
             });
 
-            // Hourly Chart
-            new Chart(document.getElementById('hourlyChart'), {
+            // Minute Chart
+            new Chart(document.getElementById('minuteChart'), {
                 type: 'line',
                 data: {
-                    labels: [<c:forEach var="entry" items="${hourlyCounts}">'${entry.key}',</c:forEach>],
+                    labels: [<c:forEach var="entry" items="${minuteCounts}">'${entry.key}',</c:forEach>],
                     datasets: [{
-                        label: 'Events per Hour',
-                        data: [<c:forEach var="entry" items="${hourlyCounts}">${entry.value},</c:forEach>],
+                        label: 'Events per Minute',
+                        data: [<c:forEach var="entry" items="${minuteCounts}">${entry.value},</c:forEach>],
                         borderColor: '#36A2EB',
                         fill: false
                     }]
@@ -157,10 +157,10 @@
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
-                            const hour = e.chart.data.labels[index];
-                            const date = '${selectedDate}';
+                            const minute = e.chart.data.labels[index];
+                            const datetime = '${selectedDateTime}';
                             const limit = '${limit}';
-                            window.location.href = 'filteredEvents?hour=' + encodeURIComponent(hour) + '&date=' + date + '&limit=' + limit;
+                            window.location.href = 'filteredEvents?minute=' + encodeURIComponent(minute) + '&datetime=' + datetime + '&limit=' + limit;
                         }
                     }
                 }

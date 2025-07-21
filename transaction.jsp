@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,7 +10,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="my-4">Transaction Report - Between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" /></h1>
+        <h1 class="my-4">Transaction Report - Between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" /> (EST)</h1>
         
         <!-- Navigation -->
         <ul class="nav nav-tabs mb-4">
@@ -22,11 +23,11 @@
         <form class="mb-4" method="get" action="transaction">
             <div class="row">
                 <div class="col-md-3">
-                    <label for="startDatetime" class="form-label">Start Date and Time</label>
+                    <label for="startDatetime" class="form-label">Start Date and Time (EST)</label>
                     <input type="datetime-local" name="startDatetime" id="startDatetime" class="form-control" value="${startDatetime}" required step="60">
                 </div>
                 <div class="col-md-3">
-                    <label for="endDatetime" class="form-label">End Date and Time</label>
+                    <label for="endDatetime" class="form-label">End Date and Time (EST)</label>
                     <input type="datetime-local" name="endDatetime" id="endDatetime" class="form-control" value="${endDatetime}" required step="60">
                 </div>
                 <div class="col-md-3">
@@ -41,7 +42,7 @@
 
         <!-- No Events Message -->
         <c:if test="${empty transactions}">
-            <div class="alert alert-info">No events found between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" />.</div>
+            <div class="alert alert-info">No events found between <c:out value="${startDatetime}" /> and <c:out value="${endDatetime}" /> (EST).</div>
         </c:if>
 
         <!-- Transaction Tables -->
@@ -51,7 +52,7 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Timestamp</th>
+                            <th>Timestamp (EST)</th>
                             <th>Component</th>
                             <th>Namespace</th>
                             <th>Event</th>
@@ -62,7 +63,15 @@
                     <tbody>
                         <c:forEach var="event" items="${entry.value}">
                             <tr>
-                                <td><c:out value="${event.timestamp != null ? event.timestamp : 'N/A'}" /></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${event.timestamp != null}">
+                                            <fmt:parseDate value="${event.timestamp}" pattern="yyyy-MM-dd'T'HH:mm:ss.SSS" var="parsedDate" />
+                                            <fmt:formatDate value="${parsedDate}" pattern="yyyy-MM-dd HH:mm:ss" timeZone="America/New_York" />
+                                        </c:when>
+                                        <c:otherwise>N/A</c:otherwise>
+                                    </c:choose>
+                                </td>
                                 <td><c:out value="${event.component != null ? event.component : 'N/A'}" /></td>
                                 <td><c:out value="${event.namespace != null ? event.namespace : 'N/A'}" /></td>
                                 <td><c:out value="${event.event != null ? event.event : 'N/A'}" /></td>

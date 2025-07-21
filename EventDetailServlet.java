@@ -22,6 +22,7 @@ import java.util.List;
 public class EventDetailServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
     private MongoClient mongoClient;
     private MongoCollection<Document> collection;
 
@@ -37,9 +38,18 @@ public class EventDetailServlet extends HttpServlet {
         String component = req.getParameter("component");
         String namespace = req.getParameter("namespace");
         String outcome = req.getParameter("outcome");
-        String datetimeParam = req.getParameter("datetime");
+        String startDatetimeParam = req.getParameter("startDatetime");
+        String endDatetimeParam = req.getParameter("endDatetime");
         String limitParam = req.getParameter("limit");
-        LocalDateTime selectedDateTime = datetimeParam != null ? LocalDateTime.parse(datetimeParam, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")) : LocalDateTime.now().withSecond(0).withNano(0);
+        
+        LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
+        LocalDateTime startDatetime = startDatetimeParam != null ? LocalDateTime.parse(startDatetimeParam, INPUT_FORMATTER) : now.minusHours(1);
+        LocalDateTime endDatetime = endDatetimeParam != null ? LocalDateTime.parse(endDatetimeParam, INPUT_FORMATTER) : now;
+        
+        if (endDatetime.isBefore(startDatetime) || endDatetime.equals(startDatetime)) {
+            endDatetime = startDatetime.plusHours(1);
+        }
+        
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
@@ -54,11 +64,11 @@ public class EventDetailServlet extends HttpServlet {
         if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
             query.append("outcome", outcome);
         }
-        LocalDateTime startOfHour = selectedDateTime.withSecond(0).withNano(0);
-        LocalDateTime endOfHour = startOfHour.plusHours(1).minusNanos(1);
+        LocalDateTime startOfRange = startDatetime.withSecond(0).withNano(0);
+        LocalDateTime endOfRange = endDatetime.withSecond(59).withNano(999999999);
         query.append("timestamp",
-                new Document("$gte", startOfHour.format(ISO_FORMATTER))
-                        .append("$lte", endOfHour.format(ISO_FORMATTER)));
+                new Document("$gte", startOfRange.format(ISO_FORMATTER))
+                        .append("$lte", endOfRange.format(ISO_FORMATTER)));
 
         for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
@@ -70,7 +80,8 @@ public class EventDetailServlet extends HttpServlet {
         }
 
         req.setAttribute("events", events);
-        req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
+        req.setAttribute("startDatetime", startDatetime.format(INPUT_FORMATTER));
+        req.setAttribute("endDatetime", endDatetime.format(INPUT_FORMATTER));
         req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/detail.jsp").forward(req, resp);
     }

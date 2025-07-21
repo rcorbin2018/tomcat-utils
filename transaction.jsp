@@ -1,9 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<%@ page import="java.time.ZoneId" %>
-<%@ page import="java.time.ZonedDateTime" %>
-<%@ page import="java.util.Date" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -69,9 +66,7 @@
                                 <td>
                                     <c:choose>
                                         <c:when test="${event.timestamp != null}">
-                                            <c:set var="utcZoned" value="${event.timestamp.atZone(ZoneId.of('UTC'))}" />
-                                            <c:set var="date" value="${Date.from(utcZoned.toInstant())}" />
-                                            <fmt:formatDate value="${date}" pattern="yyyy-MM-dd HH:mm:ss" timeZone="America/New_York" />
+                                            <fmt:formatDate value="${event.timestamp}" pattern="yyyy-MM-dd HH:mm:ss" timeZone="America/New_York" />
                                         </c:when>
                                         <c:otherwise>N/A</c:otherwise>
                                     </c:choose>

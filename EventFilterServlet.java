@@ -120,4 +120,22 @@ public class EventFilterServlet extends HttpServlet {
             } else {
                 System.err.println("Timestamp field missing or null for document _id: " + doc.get("_id"));
             }
-            String component = doc.getString("component") != null ? doc
+            String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
+            String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";
+            String outcome = doc.getString("outcome") != null ? doc.getString("outcome") : "Unknown";
+            String event = doc.getString("event") != null ? doc.getString("event") : "Unknown";
+            String eventDetails = doc.getString("eventDetails") != null ? doc.getString("eventDetails") : "Unknown";
+            String message = doc.getString("message") != null ? doc.getString("message") : "Unknown";
+
+            return new Event(component, namespace, timestamp, outcome, event, eventDetails, message);
+        } catch (Exception e) {
+            System.err.println("Error parsing document with _id: " + doc.get("_id") + " - " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public void destroy() {
+        mongoClient.close();
+    }
+}

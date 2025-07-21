@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -38,9 +37,9 @@ public class EventDetailServlet extends HttpServlet {
         String component = req.getParameter("component");
         String namespace = req.getParameter("namespace");
         String outcome = req.getParameter("outcome");
-        String dateParam = req.getParameter("date");
+        String datetimeParam = req.getParameter("datetime");
         String limitParam = req.getParameter("limit");
-        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        LocalDateTime selectedDateTime = datetimeParam != null ? LocalDateTime.parse(datetimeParam, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")) : LocalDateTime.now().withSecond(0).withNano(0);
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
@@ -55,11 +54,11 @@ public class EventDetailServlet extends HttpServlet {
         if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
             query.append("outcome", outcome);
         }
-        LocalDateTime startOfDay = selectedDate.atStartOfDay();
-        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
+        LocalDateTime startOfHour = selectedDateTime.withSecond(0).withNano(0);
+        LocalDateTime endOfHour = startOfHour.plusHours(1).minusNanos(1);
         query.append("timestamp",
-                new Document("$gte", startOfDay.format(ISO_FORMATTER))
-                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
+                new Document("$gte", startOfHour.format(ISO_FORMATTER))
+                        .append("$lte", endOfHour.format(ISO_FORMATTER)));
 
         for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
@@ -71,7 +70,7 @@ public class EventDetailServlet extends HttpServlet {
         }
 
         req.setAttribute("events", events);
-        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
         req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/detail.jsp").forward(req, resp);
     }

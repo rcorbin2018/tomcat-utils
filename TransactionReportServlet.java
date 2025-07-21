@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -37,18 +36,18 @@ public class TransactionReportServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String dateParam = req.getParameter("date");
+        String datetimeParam = req.getParameter("datetime");
         String limitParam = req.getParameter("limit");
-        LocalDate selectedDate = dateParam != null ? LocalDate.parse(dateParam) : LocalDate.now();
+        LocalDateTime selectedDateTime = datetimeParam != null ? LocalDateTime.parse(datetimeParam, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")) : LocalDateTime.now().withSecond(0).withNano(0);
         int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
         Map<String, List<Event>> transactions = new HashMap<>();
-        LocalDateTime startOfDay = selectedDate.atStartOfDay();
-        LocalDateTime endOfDay = selectedDate.atTime(23, 59, 59, 999999999);
+        LocalDateTime startOfHour = selectedDateTime.withSecond(0).withNano(0);
+        LocalDateTime endOfHour = startOfHour.plusHours(1).minusNanos(1);
         Document query = new Document("timestamp",
-                new Document("$gte", startOfDay.format(ISO_FORMATTER))
-                        .append("$lte", endOfDay.format(ISO_FORMATTER)));
+                new Document("$gte", startOfHour.format(ISO_FORMATTER))
+                        .append("$lte", endOfHour.format(ISO_FORMATTER)));
 
         for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
@@ -61,7 +60,7 @@ public class TransactionReportServlet extends HttpServlet {
         }
 
         req.setAttribute("transactions", transactions);
-        req.setAttribute("selectedDate", selectedDate.toString());
+        req.setAttribute("selectedDateTime", selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
         req.setAttribute("limit", limit);
         req.getRequestDispatcher("/WEB-INF/views/transaction.jsp").forward(req, resp);
     }

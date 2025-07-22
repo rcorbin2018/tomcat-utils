@@ -79,24 +79,28 @@ public class EventFilterServlet extends HttpServlet {
                 LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
                 ZonedDateTime minuteZonedEst = minuteLocal.atZone(EST_ZONE);
                 ZonedDateTime minuteZonedUtc = minuteZonedEst.withZoneSameInstant(UTC_ZONE);
-                Date startMinuteUtc = Date.from(minuteZonedUtc.toInstant());
-                Date endMinuteUtc = Date.from(minuteZonedUtc.plusMinutes(1).minusNanos(1).toInstant());
-                query.append("timestamp", new Document("$gte", startMinuteUtc)
-                                             .append("$lte", endMinuteUtc));
+                LocalDateTime startMinuteUtc = minuteZonedUtc.toLocalDateTime().withSecond(0).withNano(0);
+                LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
+                String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
+                String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
+                query.append("timestamp", new Document("$gte", startMinuteStr)
+                                             .append("$lte", endMinuteStr));
                 System.out.println("Minute filter: minute=" + minute + ", EST=" + minuteZonedEst + 
-                                   ", UTC range=[" + startMinuteUtc + ", " + endMinuteUtc + "]");
+                                   ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
         }
         // Apply time range filter only when minute is not specified
         if (minute == null || minute.isEmpty()) {
-            Date startOfRange = Date.from(startUtc.withSecond(0).withNano(0).atZone(UTC_ZONE).toInstant());
-            Date endOfRange = Date.from(endUtc.withSecond(59).withNano(999999999).atZone(UTC_ZONE).toInstant());
+            LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
+            LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
+            String startRangeStr = startOfRange.format(ISO_FORMATTER);
+            String endRangeStr = endOfRange.format(ISO_FORMATTER);
             query.append("timestamp",
-                    new Document("$gte", startOfRange)
-                            .append("$lte", endOfRange));
-            System.out.println("Time range filter: UTC range=[" + startOfRange + ", " + endOfRange + "]");
+                    new Document("$gte", startRangeStr)
+                            .append("$lte", endRangeStr));
+            System.out.println("Time range filter: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
         }
 
         System.out.println("Executing query: " + query.toJson());
@@ -107,7 +111,8 @@ public class EventFilterServlet extends HttpServlet {
                 continue;
             }
             events.add(event);
-            System.out.println("Found event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp());
+            System.out.println("Found event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() + 
+                               ", raw_timestamp=" + doc.getString("timestamp"));
         }
         System.out.println("Total events found: " + events.size());
 
@@ -127,14 +132,23 @@ public class EventFilterServlet extends HttpServlet {
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
+                    // Try parsing as ISO 8601 with nanoseconds
                     ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
                     timestamp = Date.from(zdt.toInstant());
-                } catch (DateTimeParseException e) {
+                } catch (DateTimeParseException e1) {
                     try {
+                        // Fallback for simpler format
                         LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
                         timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                     } catch (DateTimeParseException e2) {
-                        System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
+                        // Try additional format for flexibility
+                        try {
+                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                            timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
+                        } catch (DateTimeParseException e3) {
+                            System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
+                                               ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() + ", Simple=" + e3.getMessage());
+                        }
                     }
                 }
             } else {

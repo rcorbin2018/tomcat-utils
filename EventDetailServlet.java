@@ -68,34 +68,28 @@ public class EventDetailServlet extends HttpServlet {
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
                                  doc.getString("timeStamp");
             if (timestampStr != null) {
-                try {
-                    ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
-                    timestamp = Date.from(zdt.toInstant());
-                } catch (DateTimeParseException e1) {
+                for (DateTimeFormatter formatter : List.of(
+                        ISO_FORMATTER,
+                        FALLBACK_FORMATTER,
+                        SIMPLE_FORMATTER,
+                        MINIMAL_FORMATTER,
+                        NANO_FORMATTER
+                )) {
                     try {
-                        LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
-                        timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                    } catch (DateTimeParseException e2) {
-                        try {
-                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, SIMPLE_FORMATTER);
+                        if (formatter == ISO_FORMATTER || formatter == NANO_FORMATTER) {
+                            ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, formatter);
+                            timestamp = Date.from(zdt.toInstant());
+                        } else {
+                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, formatter);
                             timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                        } catch (DateTimeParseException e3) {
-                            try {
-                                LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
-                                timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                            } catch (DateTimeParseException e4) {
-                                try {
-                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
-                                    timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                                } catch (DateTimeParseException e5) {
-                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") +
-                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() +
-                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() +
-                                                       ", Nano=" + e5.getMessage());
-                                }
-                            }
                         }
+                        break;
+                    } catch (DateTimeParseException e) {
+                        // Try next formatter
                     }
+                }
+                if (timestamp == null) {
+                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
                 }
             } else {
                 System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));

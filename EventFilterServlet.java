@@ -17,9 +17,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.ArrayList;
 
 @WebServlet("/filteredEvents")
 public class EventFilterServlet extends HttpServlet {
@@ -83,19 +83,16 @@ public class EventFilterServlet extends HttpServlet {
                 ZonedDateTime minuteZonedEst = minuteLocal.atZone(EST_ZONE);
                 ZonedDateTime minuteZonedUtc = minuteZonedEst.withZoneSameInstant(UTC_ZONE);
                 LocalDateTime startMinuteUtc = minuteZonedUtc.toLocalDateTime().withSecond(0).withNano(0);
-                LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
-                String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
-                String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
-                // Query for either timestamp or timeStamp
+                String minutePrefix = startMinuteUtc.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+                // Use regex to match minute
                 query.append("$or", List.of(
-                        new Document("timestamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr)),
-                        new Document("timeStamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr))
+                        new Document("timestamp", new Document("$regex", "^" + minutePrefix + ":.*")),
+                        new Document("timeStamp", new Document("$regex", "^" + minutePrefix + ":.*"))
                 ));
                 System.out.println("Minute filter applied: minute=" + minute + ", EST=" + minuteZonedEst +
-                                   ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
+                                   ", UTC prefix=" + minutePrefix);
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
-                // Return empty results instead of fallback
                 req.setAttribute("events", events);
                 req.setAttribute("filterType", "Minute: " + minute + " (Invalid)");
                 req.setAttribute("startDatetime", startLocal.format(INPUT_FORMATTER));
@@ -112,17 +109,15 @@ public class EventFilterServlet extends HttpServlet {
             System.out.println("Outcome filter applied: " + outcome);
         }
 
-        // Apply time range filter only for component or outcome
+        // Apply time range filter for component or outcome
         if (query.isEmpty() || query.containsKey("component") || query.containsKey("outcome")) {
-            LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
-            LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
-            String startRangeStr = startOfRange.format(ISO_FORMATTER);
-            String endRangeStr = endOfRange.format(ISO_FORMATTER);
+            String startPrefix = startUtc.withSecond(0).withNano(0).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+            String endPrefix = endUtc.withSecond(59).withNano(999999999).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
             query.append("$or", List.of(
-                    new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
-                    new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
+                    new Document("timestamp", new Document("$regex", "^" + startPrefix + ":.*|^" + endPrefix + ":.*")),
+                    new Document("timeStamp", new Document("$regex", "^" + startPrefix + ":.*|^" + endPrefix + ":.*"))
             ));
-            System.out.println("Time range filter applied: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
+            System.out.println("Time range filter applied: UTC range=[" + startPrefix + ", " + endPrefix + "]");
         }
 
         System.out.println("Executing query: " + query.toJson());
@@ -140,6 +135,26 @@ public class EventFilterServlet extends HttpServlet {
         }
         System.out.println("Total events found: " + events.size());
 
+        // Fallback query if no events found
+        if (events.isEmpty() && !query.isEmpty()) {
+            System.out.println("No events found with initial query, trying without timestamp filter");
+            query.remove("$or");
+            System.out.println("Executing fallback query: " + query.toJson());
+            for (Document doc : collection.find(query).limit(limit)) {
+                System.out.println("Raw document (fallback): " + doc.toJson());
+                Event event = parseEvent(doc);
+                if (event == null) {
+                    System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
+                    continue;
+                }
+                events.add(event);
+                System.out.println("Found event (fallback): _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() +
+                                   ", raw_timestamp=" + doc.getString("timestamp") +
+                                   ", raw_timeStamp=" + doc.getString("timeStamp"));
+            }
+            System.out.println("Total events found (fallback): " + events.size());
+        }
+
         req.setAttribute("events", events);
         req.setAttribute("filterType", component != null ? "Component: " + component :
                                      outcome != null ? "Outcome: " + outcome :
@@ -156,34 +171,28 @@ public class EventFilterServlet extends HttpServlet {
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
                                  doc.getString("timeStamp");
             if (timestampStr != null) {
-                try {
-                    ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
-                    timestamp = Date.from(zdt.toInstant());
-                } catch (DateTimeParseException e1) {
+                for (DateTimeFormatter formatter : List.of(
+                        ISO_FORMATTER,
+                        FALLBACK_FORMATTER,
+                        SIMPLE_FORMATTER,
+                        MINIMAL_FORMATTER,
+                        NANO_FORMATTER
+                )) {
                     try {
-                        LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
-                        timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                    } catch (DateTimeParseException e2) {
-                        try {
-                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, SIMPLE_FORMATTER);
+                        if (formatter == ISO_FORMATTER || formatter == NANO_FORMATTER) {
+                            ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, formatter);
+                            timestamp = Date.from(zdt.toInstant());
+                        } else {
+                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, formatter);
                             timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                        } catch (DateTimeParseException e3) {
-                            try {
-                                LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
-                                timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                            } catch (DateTimeParseException e4) {
-                                try {
-                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
-                                    timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                                } catch (DateTimeParseException e5) {
-                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") +
-                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() +
-                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() +
-                                                       ", Nano=" + e5.getMessage());
-                                }
-                            }
                         }
+                        break;
+                    } catch (DateTimeParseException e) {
+                        // Try next formatter
                     }
+                }
+                if (timestamp == null) {
+                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
                 }
             } else {
                 System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));

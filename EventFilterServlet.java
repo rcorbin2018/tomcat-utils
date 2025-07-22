@@ -26,6 +26,7 @@ public class EventFilterServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final DateTimeFormatter SIMPLE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter MINIMAL_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
     private static final DateTimeFormatter MINUTE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final ZoneId EST_ZONE = ZoneId.of("America/New_York");
@@ -72,13 +73,9 @@ public class EventFilterServlet extends HttpServlet {
 
         List<Event> events = new ArrayList<>();
         Document query = new Document();
-        if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
-            query.append("component", component);
-            System.out.println("Filtering by component: " + component);
-        } else if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
-            query.append("outcome", outcome);
-            System.out.println("Filtering by outcome: " + outcome);
-        } else if (minute != null && !minute.isEmpty()) {
+
+        // Apply filters based on parameters
+        if (minute != null && !minute.isEmpty()) {
             try {
                 // Parse minute as EST (yyyy-MM-dd HH:mm), convert to UTC
                 LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
@@ -90,13 +87,20 @@ public class EventFilterServlet extends HttpServlet {
                 String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
                 query.append("timestamp", new Document("$gte", startMinuteStr)
                                              .append("$lte", endMinuteStr));
-                System.out.println("Minute filter: minute=" + minute + ", EST=" + minuteZonedEst + 
+                System.out.println("Minute filter applied: minute=" + minute + ", EST=" + minuteZonedEst + 
                                    ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
+        } else if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
+            query.append("component", component);
+            System.out.println("Component filter applied: " + component);
+        } else if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
+            query.append("outcome", outcome);
+            System.out.println("Outcome filter applied: " + outcome);
         }
-        // Apply time range filter only when minute is not specified
+
+        // Apply time range filter for component or outcome filtering
         if (minute == null || minute.isEmpty()) {
             LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
@@ -105,7 +109,7 @@ public class EventFilterServlet extends HttpServlet {
             query.append("timestamp",
                     new Document("$gte", startRangeStr)
                             .append("$lte", endRangeStr));
-            System.out.println("Time range filter: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
+            System.out.println("Time range filter applied: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
         }
 
         System.out.println("Executing query: " + query.toJson());
@@ -148,18 +152,26 @@ public class EventFilterServlet extends HttpServlet {
                         timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                     } catch (DateTimeParseException e2) {
                         try {
-                            // Try additional format for millisecond precision
+                            // Try millisecond precision
                             LocalDateTime ldt = LocalDateTime.parse(timestampStr, SIMPLE_FORMATTER);
                             timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                         } catch (DateTimeParseException e3) {
-                            // Try minimal format without milliseconds
                             try {
-                                LocalDateTime ldt = LocalDateTime.parse(timestampStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                                // Try minimal format without milliseconds
+                                LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
                                 timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                             } catch (DateTimeParseException e4) {
-                                System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
-                                                   ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() + 
-                                                   ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage());
+                                // Try additional format with nanoseconds
+                                try {
+                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, 
+                                        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS'Z'"));
+                                    timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
+                                } catch (DateTimeParseException e5) {
+                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
+                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() + 
+                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() + 
+                                                       ", Nano=" + e5.getMessage());
+                                }
                             }
                         }
                     }

@@ -18,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -49,9 +50,14 @@ public class EventSummaryServlet extends HttpServlet {
         String endDatetimeParam = req.getParameter("endDatetime");
         String limitParam = req.getParameter("limit");
 
+        System.out.println("Summary request parameters: startDatetime=" + startDatetimeParam +
+                           ", endDatetime=" + endDatetimeParam + ", limit=" + limitParam);
+
         LocalDateTime now = LocalDateTime.now(EST_ZONE).withSecond(0).withNano(0);
-        LocalDateTime startLocal = startDatetimeParam != null ? LocalDateTime.parse(startDatetimeParam, INPUT_FORMATTER) : now.minusHours(1);
-        LocalDateTime endLocal = endDatetimeParam != null ? LocalDateTime.parse(endDatetimeParam, INPUT_FORMATTER) : now;
+        LocalDateTime startLocal = startDatetimeParam != null && !startDatetimeParam.isEmpty() ?
+                LocalDateTime.parse(startDatetimeParam, INPUT_FORMATTER) : now.minusHours(1);
+        LocalDateTime endLocal = endDatetimeParam != null && !endDatetimeParam.isEmpty() ?
+                LocalDateTime.parse(endDatetimeParam, INPUT_FORMATTER) : now;
 
         if (endLocal.isBefore(startLocal) || endLocal.equals(startLocal)) {
             endLocal = startLocal.plusHours(1);
@@ -62,7 +68,7 @@ public class EventSummaryServlet extends HttpServlet {
         LocalDateTime startUtc = startZoned.toLocalDateTime();
         LocalDateTime endUtc = endZoned.toLocalDateTime();
 
-        int limit = limitParam != null ? Integer.parseInt(limitParam) : 5000;
+        int limit = limitParam != null && !limitParam.isEmpty() ? Integer.parseInt(limitParam) : 5000;
         if (limit <= 0) limit = 5000;
 
         Map<String, Integer> componentCounts = new TreeMap<>();
@@ -72,8 +78,8 @@ public class EventSummaryServlet extends HttpServlet {
         String startRangeStr = startUtc.withSecond(0).withNano(0).format(ISO_FORMATTER);
         String endRangeStr = endUtc.withSecond(59).withNano(999999999).format(ISO_FORMATTER);
         Document query = new Document("$or", List.of(
-            new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
-            new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
+                new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
+                new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
         ));
 
         System.out.println("Executing summary query: " + query.toJson());
@@ -95,8 +101,8 @@ public class EventSummaryServlet extends HttpServlet {
             }
             componentCounts.merge(component, 1, Integer::sum);
             outcomeCounts.merge(outcome, 1, Integer::sum);
-            System.out.println("Processed event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() + 
-                               ", raw_timestamp=" + doc.getString("timestamp") + 
+            System.out.println("Processed event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() +
+                               ", raw_timestamp=" + doc.getString("timestamp") +
                                ", raw_timeStamp=" + doc.getString("timeStamp"));
         }
         System.out.println("Total events processed: " + (componentCounts.values().stream().mapToInt(Integer::intValue).sum()));
@@ -113,8 +119,8 @@ public class EventSummaryServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             Date timestamp = null;
-            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : 
-                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") : 
+            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
+                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") :
                                  doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
@@ -137,9 +143,9 @@ public class EventSummaryServlet extends HttpServlet {
                                     LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
                                     timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                                 } catch (DateTimeParseException e5) {
-                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
-                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() + 
-                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() + 
+                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") +
+                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() +
+                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() +
                                                        ", Nano=" + e5.getMessage());
                                 }
                             }

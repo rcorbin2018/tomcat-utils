@@ -18,8 +18,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Date;
 
-@WebServlet("/eventDetail")
+@WebServlet("/detail")
 public class EventDetailServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
@@ -54,6 +55,8 @@ public class EventDetailServlet extends HttpServlet {
             } else {
                 System.out.println("No document found with _id: " + id);
             }
+        } else {
+            System.out.println("Invalid or missing id parameter: " + id);
         }
         req.setAttribute("event", event);
         req.getRequestDispatcher("/WEB-INF/views/detail.jsp").forward(req, resp);
@@ -62,8 +65,8 @@ public class EventDetailServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             Date timestamp = null;
-            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : 
-                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") : 
+            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
+                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") :
                                  doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
@@ -86,9 +89,9 @@ public class EventDetailServlet extends HttpServlet {
                                     LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
                                     timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                                 } catch (DateTimeParseException e5) {
-                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
-                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() + 
-                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() + 
+                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") +
+                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() +
+                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() +
                                                        ", Nano=" + e5.getMessage());
                                 }
                             }

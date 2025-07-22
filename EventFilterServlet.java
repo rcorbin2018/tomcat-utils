@@ -79,27 +79,24 @@ public class EventFilterServlet extends HttpServlet {
                 LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
                 ZonedDateTime minuteZonedEst = minuteLocal.atZone(EST_ZONE);
                 ZonedDateTime minuteZonedUtc = minuteZonedEst.withZoneSameInstant(UTC_ZONE);
-                LocalDateTime startMinuteUtc = minuteZonedUtc.toLocalDateTime().withSecond(0).withNano(0);
-                LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
-                String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
-                String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
-                query.append("timestamp", new Document("$gte", startMinuteStr)
-                                             .append("$lte", endMinuteStr));
-                System.out.println("Minute filter: minute=" + minute + ", EST=" + minuteZonedEst + ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
+                Date startMinuteUtc = Date.from(minuteZonedUtc.toInstant());
+                Date endMinuteUtc = Date.from(minuteZonedUtc.plusMinutes(1).minusNanos(1).toInstant());
+                query.append("timestamp", new Document("$gte", startMinuteUtc)
+                                             .append("$lte", endMinuteUtc));
+                System.out.println("Minute filter: minute=" + minute + ", EST=" + minuteZonedEst + 
+                                   ", UTC range=[" + startMinuteUtc + ", " + endMinuteUtc + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
         }
         // Apply time range filter only when minute is not specified
         if (minute == null || minute.isEmpty()) {
-            LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
-            LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
-            String startRangeStr = startOfRange.format(ISO_FORMATTER);
-            String endRangeStr = endOfRange.format(ISO_FORMATTER);
+            Date startOfRange = Date.from(startUtc.withSecond(0).withNano(0).atZone(UTC_ZONE).toInstant());
+            Date endOfRange = Date.from(endUtc.withSecond(59).withNano(999999999).atZone(UTC_ZONE).toInstant());
             query.append("timestamp",
-                    new Document("$gte", startRangeStr)
-                            .append("$lte", endRangeStr));
-            System.out.println("Time range filter: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
+                    new Document("$gte", startOfRange)
+                            .append("$lte", endOfRange));
+            System.out.println("Time range filter: UTC range=[" + startOfRange + ", " + endOfRange + "]");
         }
 
         System.out.println("Executing query: " + query.toJson());

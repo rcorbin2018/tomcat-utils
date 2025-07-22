@@ -86,6 +86,7 @@ public class EventFilterServlet extends HttpServlet {
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
                 String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
                 String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
+                // Query for either timestamp or timeStamp
                 query.append("$or", List.of(
                         new Document("timestamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr)),
                         new Document("timeStamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr))
@@ -94,7 +95,14 @@ public class EventFilterServlet extends HttpServlet {
                                    ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
-                // Do not apply time range filter; return empty results
+                // Return empty results instead of fallback
+                req.setAttribute("events", events);
+                req.setAttribute("filterType", "Minute: " + minute + " (Invalid)");
+                req.setAttribute("startDatetime", startLocal.format(INPUT_FORMATTER));
+                req.setAttribute("endDatetime", endLocal.format(INPUT_FORMATTER));
+                req.setAttribute("limit", limit);
+                req.getRequestDispatcher("/WEB-INF/views/filteredEvents.jsp").forward(req, resp);
+                return;
             }
         } else if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
             query.append("component", component);
@@ -105,8 +113,7 @@ public class EventFilterServlet extends HttpServlet {
         }
 
         // Apply time range filter only for component or outcome
-        if ((minute == null || minute.isEmpty()) &&
-            ((component != null && !component.isEmpty()) || (outcome != null && !outcome.isEmpty()))) {
+        if (query.isEmpty() || query.containsKey("component") || query.containsKey("outcome")) {
             LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
             String startRangeStr = startOfRange.format(ISO_FORMATTER);
@@ -147,8 +154,7 @@ public class EventFilterServlet extends HttpServlet {
         try {
             Date timestamp = null;
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
-                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") :
-                                 doc.getString("Timestamp");
+                                 doc.getString("timeStamp");
             if (timestampStr != null) {
                 try {
                     ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
@@ -180,7 +186,7 @@ public class EventFilterServlet extends HttpServlet {
                     }
                 }
             } else {
-                System.err.println("Timestamp field (timestamp/timeStamp/Timestamp) missing or null for document _id: " + doc.get("_id"));
+                System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

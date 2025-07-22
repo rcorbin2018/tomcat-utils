@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 @WebServlet("/summary")
 public class EventSummaryServlet extends HttpServlet {
@@ -71,7 +72,8 @@ public class EventSummaryServlet extends HttpServlet {
         Map<String, Integer> componentCounts = new HashMap<>();
         Map<String, Integer> namespaceCounts = new HashMap<>();
         Map<String, Integer> outcomeCounts = new HashMap<>();
-        Map<String, Integer> minuteCounts = new HashMap<>();
+        Map<String, Integer> minuteCounts = new TreeMap<>(); // Use TreeMap for sorted keys
+
         List<Event> recentEvents = new ArrayList<>();
 
         Document query = new Document("timestamp",

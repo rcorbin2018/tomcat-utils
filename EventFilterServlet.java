@@ -69,20 +69,23 @@ public class EventFilterServlet extends HttpServlet {
         Document query = new Document();
         if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
             query.append("component", component);
+            System.out.println("Filtering by component: " + component);
         } else if (outcome != null && !outcome.isEmpty() && !"Unknown".equals(outcome)) {
             query.append("outcome", outcome);
+            System.out.println("Filtering by outcome: " + outcome);
         } else if (minute != null && !minute.isEmpty()) {
             try {
                 // Parse minute as EST (yyyy-MM-dd HH:mm), convert to UTC
                 LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
-                ZonedDateTime minuteZoned = minuteLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
-                LocalDateTime startMinuteUtc = minuteZoned.toLocalDateTime().withSecond(0).withNano(0);
+                ZonedDateTime minuteZonedEst = minuteLocal.atZone(EST_ZONE);
+                ZonedDateTime minuteZonedUtc = minuteZonedEst.withZoneSameInstant(UTC_ZONE);
+                LocalDateTime startMinuteUtc = minuteZonedUtc.toLocalDateTime().withSecond(0).withNano(0);
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
                 String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
                 String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
                 query.append("timestamp", new Document("$gte", startMinuteStr)
                                              .append("$lte", endMinuteStr));
-                System.out.println("Minute filter: minute=" + minute + ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
+                System.out.println("Minute filter: minute=" + minute + ", EST=" + minuteZonedEst + ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
@@ -91,12 +94,15 @@ public class EventFilterServlet extends HttpServlet {
         if (minute == null || minute.isEmpty()) {
             LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
+            String startRangeStr = startOfRange.format(ISO_FORMATTER);
+            String endRangeStr = endOfRange.format(ISO_FORMATTER);
             query.append("timestamp",
-                    new Document("$gte", startOfRange.format(ISO_FORMATTER))
-                            .append("$lte", endOfRange.format(ISO_FORMATTER)));
-            System.out.println("Time range filter: UTC range=[" + startOfRange.format(ISO_FORMATTER) + ", " + endOfRange.format(ISO_FORMATTER) + "]");
+                    new Document("$gte", startRangeStr)
+                            .append("$lte", endRangeStr));
+            System.out.println("Time range filter: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
         }
 
+        System.out.println("Executing query: " + query.toJson());
         for (Document doc : collection.find(query).limit(limit)) {
             Event event = parseEvent(doc);
             if (event == null) {
@@ -104,7 +110,9 @@ public class EventFilterServlet extends HttpServlet {
                 continue;
             }
             events.add(event);
+            System.out.println("Found event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp());
         }
+        System.out.println("Total events found: " + events.size());
 
         req.setAttribute("events", events);
         req.setAttribute("filterType", component != null ? "Component: " + component :

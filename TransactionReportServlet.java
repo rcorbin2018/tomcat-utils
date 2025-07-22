@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-@WebServlet("/transactionReport")
+@WebServlet("/transaction")
 public class TransactionReportServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
@@ -102,8 +102,7 @@ public class TransactionReportServlet extends HttpServlet {
         try {
             Date timestamp = null;
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
-                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") :
-                                 doc.getString("Timestamp");
+                                 doc.getString("timeStamp");
             if (timestampStr != null) {
                 try {
                     ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
@@ -135,7 +134,7 @@ public class TransactionReportServlet extends HttpServlet {
                     }
                 }
             } else {
-                System.err.println("Timestamp field (timestamp/timeStamp/Timestamp) missing or null for document _id: " + doc.get("_id"));
+                System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

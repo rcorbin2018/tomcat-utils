@@ -66,8 +66,7 @@ public class EventDetailServlet extends HttpServlet {
         try {
             Date timestamp = null;
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
-                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") :
-                                 doc.getString("Timestamp");
+                                 doc.getString("timeStamp");
             if (timestampStr != null) {
                 try {
                     ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
@@ -99,7 +98,7 @@ public class EventDetailServlet extends HttpServlet {
                     }
                 }
             } else {
-                System.err.println("Timestamp field (timestamp/timeStamp/Timestamp) missing or null for document _id: " + doc.get("_id"));
+                System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

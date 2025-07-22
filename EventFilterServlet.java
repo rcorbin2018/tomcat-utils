@@ -27,6 +27,7 @@ public class EventFilterServlet extends HttpServlet {
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final DateTimeFormatter SIMPLE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final DateTimeFormatter MINIMAL_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter NANO_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS'Z'");
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
     private static final DateTimeFormatter MINUTE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final ZoneId EST_ZONE = ZoneId.of("America/New_York");
@@ -85,8 +86,11 @@ public class EventFilterServlet extends HttpServlet {
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
                 String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
                 String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
-                query.append("timestamp", new Document("$gte", startMinuteStr)
-                                             .append("$lte", endMinuteStr));
+                // Query for either timestamp or timeStamp field
+                query.append("$or", List.of(
+                    new Document("timestamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr)),
+                    new Document("timeStamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr))
+                ));
                 System.out.println("Minute filter applied: minute=" + minute + ", EST=" + minuteZonedEst + 
                                    ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
@@ -106,9 +110,10 @@ public class EventFilterServlet extends HttpServlet {
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
             String startRangeStr = startOfRange.format(ISO_FORMATTER);
             String endRangeStr = endOfRange.format(ISO_FORMATTER);
-            query.append("timestamp",
-                    new Document("$gte", startRangeStr)
-                            .append("$lte", endRangeStr));
+            query.append("$or", List.of(
+                new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
+                new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
+            ));
             System.out.println("Time range filter applied: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
         }
 
@@ -122,7 +127,8 @@ public class EventFilterServlet extends HttpServlet {
             }
             events.add(event);
             System.out.println("Found event: _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() + 
-                               ", raw_timestamp=" + doc.getString("timestamp"));
+                               ", raw_timestamp=" + doc.getString("timestamp") + 
+                               ", raw_timeStamp=" + doc.getString("timeStamp"));
         }
         System.out.println("Total events found: " + events.size());
 
@@ -139,7 +145,10 @@ public class EventFilterServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             Date timestamp = null;
-            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : doc.getString("Timestamp");
+            // Check for timestamp, timeStamp, or Timestamp
+            String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : 
+                                 doc.getString("timeStamp") != null ? doc.getString("timeStamp") : 
+                                 doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
                     // Try parsing as ISO 8601 with nanoseconds
@@ -161,10 +170,9 @@ public class EventFilterServlet extends HttpServlet {
                                 LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
                                 timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                             } catch (DateTimeParseException e4) {
-                                // Try additional format with nanoseconds
                                 try {
-                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, 
-                                        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS'Z'"));
+                                    // Try nanosecond precision
+                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
                                     timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                                 } catch (DateTimeParseException e5) {
                                     System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") + 
@@ -177,7 +185,7 @@ public class EventFilterServlet extends HttpServlet {
                     }
                 }
             } else {
-                System.err.println("Timestamp field missing or null for document _id: " + doc.get("_id"));
+                System.err.println("Timestamp field (timestamp/timeStamp/Timestamp) missing or null for document _id: " + doc.get("_id"));
             }
             String component = doc.getString("component") != null ? doc.getString("component") : "Unknown";
             String namespace = doc.getString("namespace") != null ? doc.getString("namespace") : "Unknown";

@@ -26,6 +26,7 @@ public class EventFilterServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+    private static final DateTimeFormatter MINUTE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final ZoneId EST_ZONE = ZoneId.of("America/New_York");
     private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
     private MongoClient mongoClient;
@@ -72,17 +73,19 @@ public class EventFilterServlet extends HttpServlet {
             query.append("outcome", outcome);
         } else if (minute != null && !minute.isEmpty()) {
             try {
-                // Parse minute as EST, convert to UTC
-                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                // Parse minute as EST (yyyy-MM-dd HH:mm), convert to UTC
+                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER.withZone(EST_ZONE));
                 ZonedDateTime minuteZoned = minuteLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
-                LocalDateTime startMinuteUtc = minuteZoned.toLocalDateTime();
+                LocalDateTime startMinuteUtc = minuteZoned.toLocalDateTime().withSecond(0).withNano(0);
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
                 query.append("timestamp", new Document("$gte", startMinuteUtc.format(ISO_FORMATTER))
                                              .append("$lte", endMinuteUtc.format(ISO_FORMATTER)));
-            } catch (Exception e) {
+            } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
-        } else {
+        }
+        // Always apply the time range filter unless minute is specified
+        if (minute == null || minute.isEmpty()) {
             LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
             query.append("timestamp",

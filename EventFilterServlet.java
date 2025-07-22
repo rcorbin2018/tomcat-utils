@@ -74,23 +74,27 @@ public class EventFilterServlet extends HttpServlet {
         } else if (minute != null && !minute.isEmpty()) {
             try {
                 // Parse minute as EST (yyyy-MM-dd HH:mm), convert to UTC
-                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER.withZone(EST_ZONE));
+                LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
                 ZonedDateTime minuteZoned = minuteLocal.atZone(EST_ZONE).withZoneSameInstant(UTC_ZONE);
                 LocalDateTime startMinuteUtc = minuteZoned.toLocalDateTime().withSecond(0).withNano(0);
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
-                query.append("timestamp", new Document("$gte", startMinuteUtc.format(ISO_FORMATTER))
-                                             .append("$lte", endMinuteUtc.format(ISO_FORMATTER)));
+                String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
+                String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
+                query.append("timestamp", new Document("$gte", startMinuteStr)
+                                             .append("$lte", endMinuteStr));
+                System.out.println("Minute filter: minute=" + minute + ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
             }
         }
-        // Always apply the time range filter unless minute is specified
+        // Apply time range filter only when minute is not specified
         if (minute == null || minute.isEmpty()) {
             LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
             LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
             query.append("timestamp",
                     new Document("$gte", startOfRange.format(ISO_FORMATTER))
                             .append("$lte", endOfRange.format(ISO_FORMATTER)));
+            System.out.println("Time range filter: UTC range=[" + startOfRange.format(ISO_FORMATTER) + ", " + endOfRange.format(ISO_FORMATTER) + "]");
         }
 
         for (Document doc : collection.find(query).limit(limit)) {

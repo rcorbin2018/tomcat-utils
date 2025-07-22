@@ -69,11 +69,11 @@ public class TransactionReportServlet extends HttpServlet {
         if (limit <= 0) limit = 5000;
 
         List<Event> events = new ArrayList<>();
-        String startRangeStr = startUtc.withSecond(0).withNano(0).format(ISO_FORMATTER);
-        String endRangeStr = endUtc.withSecond(59).withNano(999999999).format(ISO_FORMATTER);
+        String startPrefix = startUtc.withSecond(0).withNano(0).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+        String endPrefix = endUtc.withSecond(59).withNano(999999999).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
         Document query = new Document("$or", List.of(
-                new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
-                new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
+                new Document("timestamp", new Document("$regex", "^" + startPrefix + ":.*|^" + endPrefix + ":.*")),
+                new Document("timeStamp", new Document("$regex", "^" + startPrefix + ":.*|^" + endPrefix + ":.*"))
         ));
 
         System.out.println("Executing transaction query: " + query.toJson());
@@ -91,6 +91,26 @@ public class TransactionReportServlet extends HttpServlet {
         }
         System.out.println("Total events found: " + events.size());
 
+        // Fallback query if no events found
+        if (events.isEmpty()) {
+            System.out.println("No events found with initial query, trying without timestamp filter");
+            query = new Document();
+            System.out.println("Executing fallback query: " + query.toJson());
+            for (Document doc : collection.find(query).limit(limit)) {
+                System.out.println("Raw document (fallback): " + doc.toJson());
+                Event event = parseEvent(doc);
+                if (event == null) {
+                    System.out.println("Skipping document with _id: " + doc.get("_id") + " due to parsing error");
+                    continue;
+                }
+                events.add(event);
+                System.out.println("Found event (fallback): _id=" + doc.get("_id") + ", timestamp=" + event.getTimestamp() +
+                                   ", raw_timestamp=" + doc.getString("timestamp") +
+                                   ", raw_timeStamp=" + doc.getString("timeStamp"));
+            }
+            System.out.println("Total events found (fallback): " + events.size());
+        }
+
         req.setAttribute("events", events);
         req.setAttribute("startDatetime", startLocal.format(INPUT_FORMATTER));
         req.setAttribute("endDatetime", endLocal.format(INPUT_FORMATTER));
@@ -104,34 +124,28 @@ public class TransactionReportServlet extends HttpServlet {
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") :
                                  doc.getString("timeStamp");
             if (timestampStr != null) {
-                try {
-                    ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
-                    timestamp = Date.from(zdt.toInstant());
-                } catch (DateTimeParseException e1) {
+                for (DateTimeFormatter formatter : List.of(
+                        ISO_FORMATTER,
+                        FALLBACK_FORMATTER,
+                        SIMPLE_FORMATTER,
+                        MINIMAL_FORMATTER,
+                        NANO_FORMATTER
+                )) {
                     try {
-                        LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
-                        timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                    } catch (DateTimeParseException e2) {
-                        try {
-                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, SIMPLE_FORMATTER);
+                        if (formatter == ISO_FORMATTER || formatter == NANO_FORMATTER) {
+                            ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, formatter);
+                            timestamp = Date.from(zdt.toInstant());
+                        } else {
+                            LocalDateTime ldt = LocalDateTime.parse(timestampStr, formatter);
                             timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                        } catch (DateTimeParseException e3) {
-                            try {
-                                LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
-                                timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                            } catch (DateTimeParseException e4) {
-                                try {
-                                    LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
-                                    timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
-                                } catch (DateTimeParseException e5) {
-                                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id") +
-                                                       ", errors: ISO=" + e1.getMessage() + ", Fallback=" + e2.getMessage() +
-                                                       ", Simple=" + e3.getMessage() + ", Minimal=" + e4.getMessage() +
-                                                       ", Nano=" + e5.getMessage());
-                                }
-                            }
                         }
+                        break;
+                    } catch (DateTimeParseException e) {
+                        // Try next formatter
                     }
+                }
+                if (timestamp == null) {
+                    System.err.println("Failed to parse timestamp '" + timestampStr + "' for document _id: " + doc.get("_id"));
                 }
             } else {
                 System.err.println("Timestamp field (timestamp/timeStamp) missing or null for document _id: " + doc.get("_id"));

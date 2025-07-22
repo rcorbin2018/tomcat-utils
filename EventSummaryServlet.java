@@ -28,7 +28,7 @@ public class EventSummaryServlet extends HttpServlet {
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
     private static final DateTimeFormatter FALLBACK_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-    private static final DateTimeFormatter MINUTE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"); // For chart labels
+    private static final DateTimeFormatter MINUTE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final ZoneId EST_ZONE = ZoneId.of("America/New_York");
     private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
     private MongoClient mongoClient;
@@ -91,8 +91,9 @@ public class EventSummaryServlet extends HttpServlet {
             if (event.getTimestamp() != null) {
                 // Convert UTC timestamp to EST for minute chart labels
                 ZonedDateTime eventZoned = event.getTimestamp().toInstant().atZone(EST_ZONE);
-                String minute = eventZoned.format(MINUTE_FORMATTER); // Format as yyyy-MM-dd HH:mm
+                String minute = eventZoned.format(MINUTE_FORMATTER);
                 minuteCounts.merge(minute, 1, Integer::sum);
+                System.out.println("Minute label: " + minute + " for timestamp: " + event.getTimestamp());
             }
         }
 

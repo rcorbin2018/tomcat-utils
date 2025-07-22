@@ -75,10 +75,10 @@ public class EventFilterServlet extends HttpServlet {
         List<Event> events = new ArrayList<>();
         Document query = new Document();
 
-        // Apply filters based on parameters
+        // Apply minute filter with strict validation
         if (minute != null && !minute.isEmpty()) {
             try {
-                // Parse minute as EST (yyyy-MM-dd HH:mm), convert to UTC
+                // Parse minute as EST (yyyy-MM-dd HH:mm)
                 LocalDateTime minuteLocal = LocalDateTime.parse(minute + ":00", MINUTE_FORMATTER);
                 ZonedDateTime minuteZonedEst = minuteLocal.atZone(EST_ZONE);
                 ZonedDateTime minuteZonedUtc = minuteZonedEst.withZoneSameInstant(UTC_ZONE);
@@ -86,7 +86,7 @@ public class EventFilterServlet extends HttpServlet {
                 LocalDateTime endMinuteUtc = startMinuteUtc.plusMinutes(1).minusNanos(1);
                 String startMinuteStr = startMinuteUtc.format(ISO_FORMATTER);
                 String endMinuteStr = endMinuteUtc.format(ISO_FORMATTER);
-                // Query for either timestamp or timeStamp field
+                // Query for either timestamp or timeStamp
                 query.append("$or", List.of(
                     new Document("timestamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr)),
                     new Document("timeStamp", new Document("$gte", startMinuteStr).append("$lte", endMinuteStr))
@@ -95,6 +95,16 @@ public class EventFilterServlet extends HttpServlet {
                                    ", UTC range=[" + startMinuteStr + ", " + endMinuteStr + "]");
             } catch (DateTimeParseException e) {
                 System.err.println("Error parsing minute parameter: " + minute + " - " + e.getMessage());
+                // Fallback to time range to avoid empty results
+                LocalDateTime startOfRange = startUtc.withSecond(0).withNano(0);
+                LocalDateTime endOfRange = endUtc.withSecond(59).withNano(999999999);
+                String startRangeStr = startOfRange.format(ISO_FORMATTER);
+                String endRangeStr = endOfRange.format(ISO_FORMATTER);
+                query.append("$or", List.of(
+                    new Document("timestamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr)),
+                    new Document("timeStamp", new Document("$gte", startRangeStr).append("$lte", endRangeStr))
+                ));
+                System.out.println("Fallback time range filter applied: UTC range=[" + startRangeStr + ", " + endRangeStr + "]");
             }
         } else if (component != null && !component.isEmpty() && !"Unknown".equals(component)) {
             query.append("component", component);
@@ -145,33 +155,27 @@ public class EventFilterServlet extends HttpServlet {
     private Event parseEvent(Document doc) {
         try {
             Date timestamp = null;
-            // Check for timestamp, timeStamp, or Timestamp
             String timestampStr = doc.getString("timestamp") != null ? doc.getString("timestamp") : 
                                  doc.getString("timeStamp") != null ? doc.getString("timeStamp") : 
                                  doc.getString("Timestamp");
             if (timestampStr != null) {
                 try {
-                    // Try parsing as ISO 8601 with nanoseconds
                     ZonedDateTime zdt = ZonedDateTime.parse(timestampStr, ISO_FORMATTER);
                     timestamp = Date.from(zdt.toInstant());
                 } catch (DateTimeParseException e1) {
                     try {
-                        // Fallback for simpler ISO format
                         LocalDateTime ldt = LocalDateTime.parse(timestampStr, FALLBACK_FORMATTER);
                         timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                     } catch (DateTimeParseException e2) {
                         try {
-                            // Try millisecond precision
                             LocalDateTime ldt = LocalDateTime.parse(timestampStr, SIMPLE_FORMATTER);
                             timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                         } catch (DateTimeParseException e3) {
                             try {
-                                // Try minimal format without milliseconds
                                 LocalDateTime ldt = LocalDateTime.parse(timestampStr, MINIMAL_FORMATTER);
                                 timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                             } catch (DateTimeParseException e4) {
                                 try {
-                                    // Try nanosecond precision
                                     LocalDateTime ldt = LocalDateTime.parse(timestampStr, NANO_FORMATTER);
                                     timestamp = Date.from(ldt.atZone(UTC_ZONE).toInstant());
                                 } catch (DateTimeParseException e5) {
